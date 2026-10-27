@@ -2,10 +2,10 @@
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24
 
 # Page d'erreur fournie par l'image de base : inutile pour le jeu.
-# curl n'est pas utilisé par nginx et porte des CVE remontées par Trivy.
+# curl et le module image-filter (non chargé) ne servent pas au jeu et portent des CVE remontées par Trivy.
 # On repasse root le temps de les supprimer.
 USER root
-RUN rm /usr/share/nginx/html/50x.html && apk del --no-cache curl
+RUN rm /usr/share/nginx/html/50x.html && apk del --no-cache curl nginx-module-image-filter
 USER nginx
 
 # Seul le site est copié dans l'image
