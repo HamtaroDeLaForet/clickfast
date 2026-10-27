@@ -1,0 +1,14 @@
+# kubectl apply -k k8s/ : tout sauf le Secret (créé à part depuis clickfast-secret.yaml, ignoré par Git)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - clickfast-config.yaml
+  - clickfast-db.yaml
+  - clickfast-api-deployment.yaml
+  - clickfast-api-service.yaml
+  - clickfast-ingress.yaml
+images:
+  # La pipeline remplace newTag par le sha du commit avant d'appliquer
+  - name: ghcr.io/hamtarodelaforet/clickfast-api
+    newTag: localtest

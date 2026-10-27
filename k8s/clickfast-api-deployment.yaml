@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickfast-api
+  namespace: clickfast
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickfast-api
+  template:
+    metadata:
+      labels:
+        app: clickfast-api
+    spec:
+      containers:
+        - name: api
+          # Tag fixé par kustomization.yaml (sha du commit), jamais latest
+          image: ghcr.io/hamtarodelaforet/clickfast-api
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: clickfast-config
+            - secretRef:
+                name: clickfast-secret
