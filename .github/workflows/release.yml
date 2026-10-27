@@ -152,6 +152,56 @@ jobs:
           push: true
           tags: ${{ env.API_IMAGE }}:${{ github.sha }}
 
+  deploy:
+    needs: api-build
+    # Double sécurité : le workflow ne tourne déjà que sur main
+    if: github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Déploie sur vm-prod et vérifie /health
+        run: |
+          set -euo pipefail
+          # Secret absent ou mal nommé : message clair, sans jamais afficher de valeur
+          for name in DEPLOY_SSH_KEY DEPLOY_HOST DEPLOY_PORT DEPLOY_USER; do
+            [ -n "${!name}" ] || { echo "::error::secret $name vide ou introuvable"; exit 1; }
+          done
+
+          # La clé ne touche jamais le disque : elle vit dans un agent SSH détruit en fin de step
+          eval "$(ssh-agent -s)" > /dev/null
+          trap 'ssh-agent -k > /dev/null' EXIT
+          ssh-add - <<< "$DEPLOY_SSH_KEY" 2> /dev/null || { echo "::error::DEPLOY_SSH_KEY n'est pas une clé privée valide"; exit 1; }
+
+          TARGET="$DEPLOY_USER@$DEPLOY_HOST"
+          OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
+          ssh "${OPTS[@]}" -p "$DEPLOY_PORT" "$TARGET" 'mkdir -p /srv/clickfast'
+          scp "${OPTS[@]}" -P "$DEPLOY_PORT" -r deploy/compose.yml deploy/prometheus.yml deploy/grafana "$TARGET:/srv/clickfast/"
+
+          # Jeton valable le temps du job, passé par stdin : jamais dans la ligne de commande ni le log
+          printf '%s' "$GHCR_TOKEN" | ssh "${OPTS[@]}" -p "$DEPLOY_PORT" "$TARGET" \
+            "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin > /dev/null"
+          # pull d'abord : un tag introuvable échoue ici, avant d'arrêter quoi que ce soit
+          ssh "${OPTS[@]}" -p "$DEPLOY_PORT" "$TARGET" \
+            "cd /srv/clickfast && export TAG=$GITHUB_SHA && docker compose pull scores-api && docker compose up -d --remove-orphans"
+
+          for _ in $(seq 1 30); do
+            if ssh "${OPTS[@]}" -p "$DEPLOY_PORT" "$TARGET" 'wget -qO- localhost:3000/health'; then
+              echo; echo "Déployé : ${GITHUB_SHA::7}"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::/health ne répond pas 60 s après le déploiement de ${GITHUB_SHA::7}"
+          exit 1
+
   security-image:
     needs: build-and-push
     runs-on: ubuntu-latest
