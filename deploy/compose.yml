@@ -1,0 +1,59 @@
+# Prod sur vm-prod, dans /srv/clickfast. Envoyé par la pipeline, jamais modifié à la main en prod.
+# Déployer ou revenir en arrière : TAG=<sha> docker compose pull scores-api && TAG=<sha> docker compose up -d --remove-orphans
+# Le .env (DB_USER, DB_PASSWORD, DB_NAME, GRAFANA_PASSWORD) est copié à la main sur la VM, jamais dans le dépôt.
+services:
+  scores-api:
+    container_name: scores-api
+    image: "ghcr.io/hamtarodelaforet/clickfast-api:${TAG:?TAG manquant, lancer avec TAG=<sha>}"
+    environment:
+      DB_HOST: scores-db
+      DB_USER: ${DB_USER:?DB_USER manquant dans .env}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans .env}
+      DB_NAME: ${DB_NAME:?DB_NAME manquant dans .env}
+    ports:
+      - "3000:3000"
+    depends_on:
+      scores-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scores-db:
+    container_name: scores-db
+    image: postgres:16.15-alpine3.24
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - scores-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v3.15.1
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:13.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD manquant dans .env}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  scores-data:
