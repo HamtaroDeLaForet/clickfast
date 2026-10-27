@@ -1,0 +1,74 @@
+# Stack de prod depuis le registry, sans code source : docker compose -f docker-compose.prod.yml up -d
+# Toutes les valeurs viennent du .env (voir .env.example).
+services:
+  db:
+    image: postgres:16.15-alpine3.24
+    environment:
+      POSTGRES_USER: ${DB_USER:?DB_USER manquant dans .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans .env}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME manquant dans .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [clickfast-net]
+    # Aucun port publié : la base n'est joignable que depuis le network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/hamtarodelaforet/clickfast-api:${TAG:?TAG manquant dans .env}
+    environment:
+      DB_HOST: db
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    ports:
+      - "${API_PORT:?API_PORT manquant dans .env}:3000"
+    networks: [clickfast-net]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  stats-api:
+    image: ghcr.io/hamtarodelaforet/clickfast-stats-api:${TAG:?TAG manquant dans .env}
+    environment:
+      DB_HOST: db
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    ports:
+      - "${STATS_PORT:?STATS_PORT manquant dans .env}:5000"
+    networks: [clickfast-net]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  front:
+    image: ghcr.io/hamtarodelaforet/clickfast:${TAG:?TAG manquant dans .env}
+    ports:
+      - "${FRONT_PORT:?FRONT_PORT manquant dans .env}:8080"
+    networks: [clickfast-net]
+    depends_on: [api]
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:5.5.1
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "${ADMINER_PORT:?ADMINER_PORT manquant dans .env}:8080"
+    networks: [clickfast-net]
+    depends_on: [db]
+
+networks:
+  clickfast-net:
+    name: clickfast-net
+
+volumes:
+  db-data:
+    name: clickfast-db-data
