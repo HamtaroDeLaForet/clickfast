@@ -1,0 +1,103 @@
+name: Verify
+
+# Vérifie seulement : une pull request ne publie jamais rien
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  security-deps:
+    runs-on: ubuntu-latest
+    outputs:
+      high: ${{ steps.audit.outputs.high }}
+      critical: ${{ steps.audit.outputs.critical }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: audit
+        run: |
+          npm audit --json > audit.json || true
+          echo "high=$(jq '.metadata.vulnerabilities.high' audit.json)" >> "$GITHUB_OUTPUT"
+          echo "critical=$(jq '.metadata.vulnerabilities.critical' audit.json)" >> "$GITHUB_OUTPUT"
+      # Bloque sur high et critical, laisse passer le reste
+      - run: npm audit --audit-level=high
+
+  security-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tout l'historique, pas seulement le dernier commit
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t clickfast:${{ github.sha }} .
+
+  security-summary:
+    needs: [security-deps, security-secrets]
+    # Tourne même si un scan a échoué ou a été sauté
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          DEPS: ${{ needs.security-deps.result }}
+          HIGH: ${{ needs.security-deps.outputs.high }}
+          CRITICAL: ${{ needs.security-deps.outputs.critical }}
+          SECRETS: ${{ needs.security-secrets.result }}
+          # Pas d'image publiée sur une pull request : scan et SBOM non lancés
+          IMAGE_RESULT: ""
+          VULNS: ""
+          SBOM: ""
+          COMPONENTS: ""
+        run: |
+          # Valeur absente (job sauté ou planté avant d'écrire) : on l'affiche comme telle, jamais inventée
+          val() { [ -n "$1" ] && echo "$1" || echo "n/a"; }
+          icon() { case "$1" in success) echo "✅";; ""|skipped) echo "⏭️ sauté";; *) echo "❌ $1";; esac; }
+          {
+            echo "## Sécurité de \`${GITHUB_SHA::7}\`"
+            echo
+            echo "| Contrôle | Statut | Détail |"
+            echo "|---|---|---|"
+            echo "| Dépendances (npm audit) | $(icon "$DEPS") | high: $(val "$HIGH"), critical: $(val "$CRITICAL") |"
+            echo "| Secrets (gitleaks) | $(icon "$SECRETS") | historique complet |"
+            echo "| Image (Trivy) | $(icon "$IMAGE_RESULT") | HIGH/CRITICAL: $(val "$VULNS") |"
+            echo "| Inventaire (SBOM Syft) | $(icon "$SBOM") | composants: $(val "$COMPONENTS") |"
+            echo
+            if [ "$DEPS" = success ] && [ "$SECRETS" = success ] && [ "$IMAGE_RESULT" = success ] && [ "$SBOM" = success ]; then
+              echo "**Publiable en confiance : oui**"
+            else
+              echo "**Publiable en confiance : non**, voir les lignes non vertes"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
