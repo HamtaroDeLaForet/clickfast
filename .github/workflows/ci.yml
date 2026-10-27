@@ -65,6 +65,8 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
+    # Un humain doit cliquer "approve" avant que le job démarre
+    environment: production
     permissions:
       contents: read
       packages: write
