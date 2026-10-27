@@ -12,7 +12,7 @@ COPY --from=deps /usr/local/bin/node /usr/local/bin/node
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json config.js app.js server.js ./
+COPY package.json config.js db.js app.js server.js ./
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
