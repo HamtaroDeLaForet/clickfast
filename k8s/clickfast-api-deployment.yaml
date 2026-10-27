@@ -24,3 +24,14 @@ spec:
                 name: clickfast-config
             - secretRef:
                 name: clickfast-secret
+          # Pas prêt : retiré du Service, aucune requête ne lui est envoyée
+          readinessProbe:
+            httpGet: { path: /health, port: 3000 }
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          # Bloqué : redémarré. Délai plus large pour ne jamais tuer un pod qui démarre.
+          # Limite : /health ne teste pas la base, un pod sans base reste 1/1 et renvoie des 500/503
+          livenessProbe:
+            httpGet: { path: /health, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
