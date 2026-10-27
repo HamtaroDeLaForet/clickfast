@@ -43,6 +43,41 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  api-integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    # Base jetable, recréée à chaque run ; le job attend qu'elle soit prête (pg_isready)
+    services:
+      postgres:
+        image: postgres:16.15-alpine3.24
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DB_HOST: localhost
+      DB_USER: test
+      DB_PASSWORD: test
+      DB_NAME: test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run test:integration
+
   security-deps:
     runs-on: ubuntu-latest
     outputs:
