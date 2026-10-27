@@ -55,6 +55,33 @@ function createApp(pool, { corsOrigin = "*" } = {}) {
     }
   });
 
+  app.get("/api/scores/:id", async (req, res, next) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: "score introuvable" });
+    try {
+      const { rows } = await pool.query(
+        "SELECT id, username, score, created_at FROM scores WHERE id = $1",
+        [id]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: "score introuvable" });
+      res.json(rows[0]);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete("/api/scores/:id", async (req, res, next) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: "score introuvable" });
+    try {
+      const { rowCount } = await pool.query("DELETE FROM scores WHERE id = $1", [id]);
+      if (rowCount === 0) return res.status(404).json({ error: "score introuvable" });
+      res.sendStatus(204);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.use((req, res) => res.status(404).json({ error: "route inconnue" }));
 
   // JSON invalide : erreur du client. Le reste (base injoignable...) : 503, jamais un plantage.

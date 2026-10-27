@@ -1,6 +1,7 @@
 const { Pool } = require("pg");
 const { loadConfig } = require("./config");
 const { createApp } = require("./app");
+const { SCHEMA } = require("./db");
 
 let config;
 try {
@@ -13,13 +14,6 @@ try {
 const pool = new Pool({ ...config.db, connectionTimeoutMillis: 3000 });
 // Sans ce handler, une base tuée fait planter tout le process via un client inactif
 pool.on("error", (err) => console.error("Connexion Postgres perdue :", err.message));
-
-const SCHEMA = `CREATE TABLE IF NOT EXISTS scores (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(32) NOT NULL,
-  score INTEGER NOT NULL CHECK (score >= 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)`;
 
 // La base peut démarrer après l'API : on réessaie jusqu'à pouvoir créer la table
 async function initSchema() {
