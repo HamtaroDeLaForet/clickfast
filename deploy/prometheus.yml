@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: scores-api
+    # Nom du service dans le réseau compose : jamais localhost (ce serait le conteneur Prometheus lui-même)
+    static_configs:
+      - targets: ["scores-api:3000"]
