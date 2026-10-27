@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clickfast-db-data
+  namespace: clickfast
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickfast-db
+  namespace: clickfast
+spec:
+  replicas: 1
+  # Un seul pod à la fois sur le volume RWO : on arrête l'ancien avant de lancer le nouveau
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: clickfast-db
+  template:
+    metadata:
+      labels:
+        app: clickfast-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16.15-alpine3.24
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef: { name: clickfast-secret, key: DB_NAME }
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: clickfast-secret, key: DB_USER }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: clickfast-secret, key: DB_PASSWORD }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              # Postgres refuse un dossier de données non vide (lost+found) : on travaille dans un sous-dossier
+              subPath: pgdata
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: clickfast-db-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickfast-db
+  namespace: clickfast
+spec:
+  selector:
+    app: clickfast-db
+  ports:
+    - port: 5432
