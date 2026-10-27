@@ -141,3 +141,39 @@ jobs:
         with:
           name: sbom-${{ github.sha }}
           path: sbom.cdx.json
+
+  security-summary:
+    needs: [security-deps, security-secrets, security-image, sbom]
+    # Tourne même si un scan a échoué ou a été sauté
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          DEPS: ${{ needs.security-deps.result }}
+          HIGH: ${{ needs.security-deps.outputs.high }}
+          CRITICAL: ${{ needs.security-deps.outputs.critical }}
+          SECRETS: ${{ needs.security-secrets.result }}
+          IMAGE_RESULT: ${{ needs.security-image.result }}
+          VULNS: ${{ needs.security-image.outputs.vulns }}
+          SBOM: ${{ needs.sbom.result }}
+          COMPONENTS: ${{ needs.sbom.outputs.components }}
+        run: |
+          # Valeur absente (job sauté ou planté avant d'écrire) : on l'affiche comme telle, jamais inventée
+          val() { [ -n "$1" ] && echo "$1" || echo "n/a"; }
+          icon() { case "$1" in success) echo "✅";; skipped) echo "⏭️ sauté";; *) echo "❌ $1";; esac; }
+          {
+            echo "## Sécurité de \`${GITHUB_SHA::7}\`"
+            echo
+            echo "| Contrôle | Statut | Détail |"
+            echo "|---|---|---|"
+            echo "| Dépendances (npm audit) | $(icon "$DEPS") | high: $(val "$HIGH"), critical: $(val "$CRITICAL") |"
+            echo "| Secrets (gitleaks) | $(icon "$SECRETS") | historique complet |"
+            echo "| Image (Trivy) | $(icon "$IMAGE_RESULT") | HIGH/CRITICAL: $(val "$VULNS") |"
+            echo "| Inventaire (SBOM Syft) | $(icon "$SBOM") | composants: $(val "$COMPONENTS") |"
+            echo
+            if [ "$DEPS" = success ] && [ "$SECRETS" = success ] && [ "$IMAGE_RESULT" = success ] && [ "$SBOM" = success ]; then
+              echo "**Publiable en confiance : oui**"
+            else
+              echo "**Publiable en confiance : non**, voir les lignes non vertes"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
