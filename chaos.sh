@@ -13,12 +13,12 @@ case $n in
   2) kubectl exec -n $ns "$pod" -- kill 1
      answer="kill 1 dans $pod : le conteneur s'arrête. Se répare seule : kubelet le redémarre (RESTARTS +1)." ;;
   3) kubectl set image deployment/clickfast-api -n $ns api=ghcr.io/hamtarodelaforet/clickfast-api:ce-tag-n-existe-pas
-     answer="image inexistante : nouveau pod en ImagePullBackOff. Remède : kubectl rollout undo deployment/clickfast-api -n $ns." ;;
+     answer="image inexistante : nouveau pod en ImagePullBackOff. Remède : kubectl apply -k k8s/ (remet la limite déclarée)." ;;
   4) kubectl patch secret clickfast-secret -n $ns --type=json -p '[{"op":"remove","path":"/data/DB_PASSWORD"}]'
      kubectl rollout restart deployment/clickfast-api -n $ns
      answer="DB_PASSWORD retirée du Secret : nouveaux pods en CrashLoopBackOff (variable manquante). Remède : kubectl apply -f k8s/clickfast-secret.yaml puis kubectl rollout restart deployment/clickfast-api -n $ns." ;;
   5) kubectl set resources deployment/clickfast-api -n $ns -c api --limits=memory=8Mi
-     answer="limite mémoire à 8Mi : nouveaux pods OOMKilled en boucle. Remède : kubectl rollout undo deployment/clickfast-api -n $ns." ;;
+     answer="limite mémoire à 8Mi : nouveaux pods OOMKilled en boucle. Remède : kubectl apply -k k8s/ (remet la limite déclarée)." ;;
 esac > /dev/null 2>&1
 
 printf 'Panne %s : %s\n' "$n" "$answer" | base64 > .incident
