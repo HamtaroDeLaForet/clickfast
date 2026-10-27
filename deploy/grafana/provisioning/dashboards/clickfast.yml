@@ -1,0 +1,6 @@
+apiVersion: 1
+providers:
+  - name: clickfast
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
