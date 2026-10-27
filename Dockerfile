@@ -9,6 +9,6 @@ RUN rm /usr/share/nginx/html/50x.html && apk del --no-cache curl nginx-module-im
 USER nginx
 
 # Seul le site est copié dans l'image
-COPY --chmod=644 index.html style.css script.js /usr/share/nginx/html/
+COPY --chmod=644 index.html style.css config.js script.js /usr/share/nginx/html/
 
 EXPOSE 8080
