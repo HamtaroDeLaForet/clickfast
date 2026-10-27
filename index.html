@@ -14,12 +14,20 @@
         <div class="flex-center">
           <div id="score" class="number">0</div>
         </div>
+        <p class="catchphrase">
+          <label for="username">Pseudo :</label>
+          <input id="username" type="text" maxlength="32" autocomplete="nickname" />
+        </p>
         <p class="catchphrase">Temps restant : <span id="timer">5</span> s</p>
         <div class="flex-center">
           <button id="button-clicker" type="button">Clique !</button>
         </div>
+        <p id="message" class="catchphrase" role="status"></p>
+        <h2 class="flex-center">Classement</h2>
+        <ol id="leaderboard"></ol>
       </div>
     </div>
+    <script src="config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
