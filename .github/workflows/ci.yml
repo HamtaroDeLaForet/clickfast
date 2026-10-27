@@ -28,6 +28,36 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  security-deps:
+    runs-on: ubuntu-latest
+    outputs:
+      high: ${{ steps.audit.outputs.high }}
+      critical: ${{ steps.audit.outputs.critical }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: audit
+        run: |
+          npm audit --json > audit.json || true
+          echo "high=$(jq '.metadata.vulnerabilities.high' audit.json)" >> "$GITHUB_OUTPUT"
+          echo "critical=$(jq '.metadata.vulnerabilities.critical' audit.json)" >> "$GITHUB_OUTPUT"
+      # Bloque sur high et critical, laisse passer le reste
+      - run: npm audit --audit-level=high
+
+  security-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tout l'historique, pas seulement le dernier commit
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
     needs: test
     runs-on: ubuntu-latest
