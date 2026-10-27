@@ -1,0 +1,13 @@
+{
+  "name": "clickfast",
+  "version": "1.0.0",
+  "description": "Jeu ClickFast : cliquer le plus vite possible en 5 secondes",
+  "private": true,
+  "scripts": {
+    "test": "jest --env=jsdom"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2"
+  }
+}
