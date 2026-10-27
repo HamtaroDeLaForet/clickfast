@@ -32,8 +32,8 @@ spec:
                 name: clickfast-secret
           # Mesuré sous charge.sh : ~26Mi et ~10m CPU par pod
           resources:
-            requests: { cpu: 50m, memory: 32Mi }
-            limits: { cpu: 250m, memory: 40Mi }
+            requests: { cpu: 50m, memory: 24Mi }
+            limits: { cpu: 250m, memory: 32Mi }
           # Laisse 5 s à Traefik pour retirer le pod de ses cibles avant le SIGTERM : sinon 502 pendant le rollout
           lifecycle:
             preStop:
