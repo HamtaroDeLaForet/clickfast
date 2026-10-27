@@ -5,6 +5,12 @@ metadata:
   namespace: clickfast
 spec:
   replicas: 3
+  # Zéro requête perdue : un pod en plus pendant la mise à jour, jamais un en moins
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: clickfast-api
@@ -24,6 +30,10 @@ spec:
                 name: clickfast-config
             - secretRef:
                 name: clickfast-secret
+          # Laisse 5 s à Traefik pour retirer le pod de ses cibles avant le SIGTERM : sinon 502 pendant le rollout
+          lifecycle:
+            preStop:
+              sleep: { seconds: 5 }
           # Pas prêt : retiré du Service, aucune requête ne lui est envoyée
           readinessProbe:
             httpGet: { path: /health, port: 3000 }
