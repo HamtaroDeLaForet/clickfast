@@ -2,3 +2,5 @@
 node_modules/
 deploy_key
 deploy_key.pub
+k8s/clickfast-secret.yaml
+.incident

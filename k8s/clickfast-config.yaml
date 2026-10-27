@@ -1,0 +1,11 @@
+# Configuration non sensible. Un changement n'est relu qu'au redémarrage des pods :
+# kubectl rollout restart deployment/clickfast-api -n clickfast
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickfast-config
+  namespace: clickfast
+data:
+  DB_HOST: clickfast-db
+  DB_PORT: "5432"
+  NODE_ENV: production
