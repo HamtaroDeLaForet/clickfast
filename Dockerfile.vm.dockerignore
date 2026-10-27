@@ -1,0 +1,3 @@
+# Contexte de Dockerfile.vm : uniquement la clé publique
+*
+!deploy_key.pub

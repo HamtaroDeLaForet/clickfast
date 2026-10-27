@@ -1,0 +1,14 @@
+# Machine de production simulée : Docker-in-Docker + serveur SSH (connexion par clé uniquement)
+# docker build -f Dockerfile.vm -t vm-prod .
+FROM docker:28.5.2-dind
+
+RUN apk add --no-cache openssh-server \
+ && ssh-keygen -A \
+ && printf 'PasswordAuthentication no\nPermitRootLogin prohibit-password\n' >> /etc/ssh/sshd_config \
+ && printf '#!/bin/sh\n/usr/sbin/sshd\nexec dockerd-entrypoint.sh "$@"\n' > /start.sh \
+ && chmod +x /start.sh
+
+# Seule la clé publique entre dans l'image : la privée reste sur l'hôte (deploy_key, ignorée par Git)
+COPY --chmod=600 deploy_key.pub /root/.ssh/authorized_keys
+
+ENTRYPOINT ["/start.sh"]
