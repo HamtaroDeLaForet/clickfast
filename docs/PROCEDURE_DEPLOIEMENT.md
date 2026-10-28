@@ -113,6 +113,7 @@ Autres cas connus :
 | Base arrêtée | les pods API restent `1/1`, mais `/api/scores` renvoie 503 | `kubectl scale deployment/clickfast-db -n clickfast --replicas=1` |
 | Selector du Service faux | 3 pods `Running`, mais toutes les requêtes échouent ; `kubectl get endpoints -n clickfast` vide | réappliquer `k8s/clickfast-api-service.yaml` |
 | Pod `Pending` | `0/1 Pending`, events : `Insufficient memory` ou `cpu` | baisser `requests` ou libérer le nœud |
+| DNS du cluster figé après un changement de réseau | job `deploy` rouge sur `timed out waiting for the condition` ; 1 pod `ImagePullBackOff`, 3 anciens `Running` ; events : `lookup ghcr.io: Try again` | `k3d cluster stop clickfast-cluster && k3d cluster start clickfast-cluster`, vérifier `docker exec k3d-clickfast-cluster-server-0 nslookup ghcr.io`, puis relancer le job (« Re-run failed jobs ») |
 
 **Limite des sondes** : `/health` ne teste pas la base. Si Postgres tombe, les pods API restent `1/1 Ready`, le Service continue de leur envoyer du trafic et les joueurs reçoivent des 503. Il faut surveiller les erreurs (`charge.sh`, `kubectl logs`), pas seulement l'état des pods.
 
