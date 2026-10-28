@@ -24,7 +24,7 @@ describe("ClickFast", () => {
     button.click();
     button.click();
     button.click();
-    expect(score.textContent).not.toBe("3");
+    expect(score.textContent).toBe("3");
   });
 
   test("le chrono décompte après le premier clic", () => {
